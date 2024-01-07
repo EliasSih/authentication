@@ -9,16 +9,23 @@ const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
 const flash = require('connect-flash');
-var findOrCreate = require('mongoose-findorcreate')
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+
+
+
+
 
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+
+
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = process.env.MONGO_URI;
 
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
 
 mongoose.connection.on('open', () => {
   console.log("Successfully connected to MongoDB Atlas!");
@@ -27,6 +34,7 @@ mongoose.connection.on('open', () => {
 mongoose.connection.on('error', (err) => {
   console.error("MongoDB connection error:", err);
 });
+
 
 const app = express();
 
@@ -58,29 +66,18 @@ const client = new MongoClient(uri, {
 
 var userSchema = new mongoose.Schema({
   email: String,
-  password: String,
-  googleId: String
+  password: String
 });
 
 userSchema.plugin(passportLocalMongoose);
-userSchema.plugin(findOrCreate);
 
 const User = new mongoose.model("User", userSchema);
 
 // CHANGE: USE "createStrategy" INSTEAD OF "authenticate"
 passport.use(User.createStrategy());
 
-passport.serializeUser(function(user, done) {
-  done(null, user.id);
-});
-
-passport.deserializeUser(function(id, done) {
-  User.findById(id).then(user => {
-    done(null, user);
-  }).catch(err => {
-    done(err);
-  });
-});
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
@@ -103,16 +100,6 @@ const secret = process.env.SECRET;
 app.get("/", function (req, res){
   res.render("home");
 });
-
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile'] }));
-
-app.get('/auth/google/secrets',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/');
-  });
 
 app.get("/login", async function(req, res){
   res.render("login");
